@@ -1,101 +1,149 @@
-import Image from "next/image";
+'use client';
+
+import { useState } from 'react';
+import { useWeb3 } from '@/context/Web3Context';
+import type { PassportFormData, PassportData } from '@/types/passport';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { account, contract } = useWeb3();
+  const [formData, setFormData] = useState<PassportFormData>({
+    name: '',
+    age: '',
+    birthdate: '',
+    country: ''
+  });
+  const [verificationAddress, setVerificationAddress] = useState<string>('');
+  const [passportData, setPassportData] = useState<PassportData | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!contract || !account) return;
+
+      await contract.methods.register(
+        formData.name,
+        parseInt(formData.age),
+        new Date(formData.birthdate).getTime() / 1000,
+        formData.country
+      ).send({ from: account });
+      
+      alert('Registration successful!');
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Registration failed!');
+    }
+  };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (!contract || !account) return;
+
+      const result = await contract.methods.verify(verificationAddress)
+        .call({ from: account });
+
+      setPassportData({
+        exists: result.hasPassport,
+        name: result.name,
+        age: Number(result.age),
+        birthdate: new Date(Number(result.birthdate) * 1000).toLocaleDateString(),
+        country: result.country,
+        passportId: result.passportId
+      });
+    } catch (error) {
+      console.error('Verification error:', error);
+      alert('Verification failed!');
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-3xl font-bold mb-6">Passport Management DApp</h1>
+      
+      {!account && (
+        <div className="bg-yellow-100 p-4 rounded">
+          Please connect your MetaMask wallet.
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      )}
+
+      {account && (
+        <div className="space-y-8">
+          <div>
+            <h2 className="text-xl font-bold mb-4">Register Passport</h2>
+            <form onSubmit={handleRegister} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Name"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="number"
+                placeholder="Age"
+                value={formData.age}
+                onChange={(e) => setFormData({...formData, age: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="date"
+                value={formData.birthdate}
+                onChange={(e) => setFormData({...formData, birthdate: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="text"
+                placeholder="Country"
+                value={formData.country}
+                onChange={(e) => setFormData({...formData, country: e.target.value})}
+                className="w-full p-2 border rounded"
+              />
+              <button 
+                type="submit" 
+                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+              >
+                Register
+              </button>
+            </form>
+          </div>
+
+          <div>
+            <h2 className="text-xl font-bold mb-4">Verify Passport</h2>
+            <form onSubmit={handleVerify} className="space-y-4">
+              <input
+                type="text"
+                placeholder="Ethereum Address"
+                value={verificationAddress}
+                onChange={(e) => setVerificationAddress(e.target.value)}
+                className="w-full p-2 border rounded"
+              />
+              <button 
+                type="submit" 
+                className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors"
+              >
+                Verify
+              </button>
+            </form>
+          </div>
+
+          {passportData && (
+            <div className="border p-4 rounded">
+              <h3 className="font-bold mb-2">Passport Data:</h3>
+              {passportData.exists ? (
+                <div className="space-y-2">
+                  <p>Name: {passportData.name}</p>
+                  <p>Age: {passportData.age}</p>
+                  <p>Birthdate: {passportData.birthdate}</p>
+                  <p>Country: {passportData.country}</p>
+                  <p>Passport ID: {passportData.passportId}</p>
+                </div>
+              ) : (
+                <p>No passport found for this address.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
