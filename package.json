@@ -1,0 +1,6 @@
+{
+  "scripts": {
+    "postcompile": "node scripts/copyContracts.js",
+    "update-admin": "node scripts/updateConfig.js"
+  }
+} 

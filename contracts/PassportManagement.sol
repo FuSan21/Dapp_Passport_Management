@@ -14,8 +14,8 @@ contract PassportManagement {
     // Mapping from address to passport data
     mapping(address => Passport) private passports;
     
-    // Array to store authorized admins
-    address[] private admins;
+    // Single admin address
+    address private admin;
     
     // Counter for passport IDs
     uint private passportIdCounter;
@@ -23,22 +23,10 @@ contract PassportManagement {
     // Events
     event PassportRegistered(address indexed user, uint passportId);
     
-    constructor() {
-        // Add contract deployer as the first admin
-        admins.push(msg.sender);
+    constructor(address _admin) {
+        require(_admin != address(0), "Invalid admin address");
+        admin = _admin;
         passportIdCounter = 1;
-    }
-    
-    modifier onlyAdmin() {
-        bool isAdminFlag = false;
-        for(uint i = 0; i < admins.length; i++) {
-            if(admins[i] == msg.sender) {
-                isAdminFlag = true;
-                break;
-            }
-        }
-        require(isAdminFlag, "Only admin can perform this action");
-        _;
     }
     
     function register(
@@ -64,7 +52,7 @@ contract PassportManagement {
         emit PassportRegistered(msg.sender, newPassport.passportId);
     }
     
-    function verify(address _userAddress) public view returns (
+    function verify(address _userAddress, uint _age) public view returns (
         bool hasPassport,
         string memory name,
         uint age,
@@ -72,34 +60,31 @@ contract PassportManagement {
         string memory country,
         uint passportId
     ) {
-        require(
-            msg.sender == _userAddress || isAdmin(msg.sender),
-            "Unauthorized access"
-        );
-        
         Passport memory passport = passports[_userAddress];
+        require(passport.exists, "No passport found for this address");
+
+        // Admin can verify without age check
+        if (msg.sender == admin) {
+            return (
+                true,
+                passport.name,
+                passport.age,
+                passport.birthdate,
+                passport.country,
+                passport.passportId
+            );
+        }
+        
+        // All other users (including passport owner) need correct age to verify
+        require(passport.age == _age, "Invalid age provided");
         
         return (
-            passport.exists,
+            true,
             passport.name,
             passport.age,
             passport.birthdate,
             passport.country,
             passport.passportId
         );
-    }
-    
-    function addAdmin(address _newAdmin) public onlyAdmin {
-        require(_newAdmin != address(0), "Invalid address");
-        admins.push(_newAdmin);
-    }
-    
-    function isAdmin(address _address) private view returns (bool) {
-        for(uint i = 0; i < admins.length; i++) {
-            if(admins[i] == _address) {
-                return true;
-            }
-        }
-        return false;
     }
 }
