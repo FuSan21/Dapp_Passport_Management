@@ -16,11 +16,15 @@ export default function Home() {
   const [passportData, setPassportData] = useState<PassportData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   // Reset states when account changes
   useEffect(() => {
     setIsLoading(false);
     setError(null);
+    setSuccess(null);
+    setVerifyError(null);
     setPassportData(null);
     setFormData({
       name: '',
@@ -39,6 +43,7 @@ export default function Home() {
     }
 
     setError(null);
+    setSuccess(null);
     setIsLoading(true);
     
     try {
@@ -58,7 +63,7 @@ export default function Home() {
         formData.country
       ).send({ from: account });
       
-      alert('Registration successful!');
+      setSuccess('Registration successful!');
       // Clear form after successful registration
       setFormData({
         name: '',
@@ -81,8 +86,12 @@ export default function Home() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
+    setVerifyError(null);
     try {
-      if (!contract || !account) return;
+      if (!contract || !account) {
+        setVerifyError('Please connect your wallet first');
+        return;
+      }
 
       const result = await contract.methods.verify(verificationAddress)
         .call({ from: account }) as VerifyResult;
@@ -95,9 +104,9 @@ export default function Home() {
         country: result.country,
         passportId: result.passportId
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Verification error:', error);
-      alert('Verification failed!');
+      setVerifyError(error.message || 'Verification failed. Please try again.');
     }
   };
 
@@ -118,6 +127,11 @@ export default function Home() {
             {error && (
               <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
                 {error}
+              </div>
+            )}
+            {success && (
+              <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+                {success}
               </div>
             )}
             <form onSubmit={handleRegister} className="space-y-4">
@@ -164,6 +178,11 @@ export default function Home() {
 
           <div>
             <h2 className="text-xl font-bold mb-4">Verify Passport</h2>
+            {verifyError && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                {verifyError}
+              </div>
+            )}
             <form onSubmit={handleVerify} className="space-y-4">
               <input
                 type="text"
