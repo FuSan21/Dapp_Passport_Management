@@ -4,9 +4,20 @@ import { useState, useEffect } from 'react';
 import Web3 from 'web3';
 import PassportManagement from '../contracts/PassportManagement.json';
 import config from '../config/config';
+import type { Web3Error, PassportManagementContract, PassportContract } from '../types/web3';
+import type { PassportData } from '../types/passport';
 
-interface Web3Error {
-  message: string;
+// Add Ethereum provider interface
+interface EthereumProvider {
+  request: (args: { method: string; }) => Promise<string[]>;
+  on: (event: string, callback: (accounts: string[]) => void) => void;
+  removeAllListeners: (event: string) => void;
+  selectedAddress: string | null;
+}
+
+// Extend the Window interface instead of using declare global
+interface Window {
+  ethereum: EthereumProvider;
 }
 
 interface NetworkConfig {
@@ -20,13 +31,9 @@ interface ContractNetworks {
   [key: number]: NetworkConfig;
 }
 
-interface PassportManagementContract extends Omit<typeof PassportManagement, 'networks'> {
-  networks: ContractNetworks;
-}
-
 export default function Home() {
   const [web3, setWeb3] = useState<Web3 | null>(null);
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<PassportContract | null>(null);
   const [account, setAccount] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
@@ -41,7 +48,7 @@ export default function Home() {
   // Verification states
   const [verifyAddress, setVerifyAddress] = useState<string>('');
   const [verifyAge, setVerifyAge] = useState<string>('');
-  const [passportData, setPassportData] = useState<any>(null);
+  const [passportData, setPassportData] = useState<PassportData | null>(null);
   const [verifyError, setVerifyError] = useState<string>('');
 
   // Function to handle account changes
@@ -78,7 +85,7 @@ export default function Home() {
           const contractInstance = new web3Instance.eth.Contract(
             PassportManagement.abi,
             deployedNetwork.address
-          );
+          ) as unknown as PassportContract;
           
           setWeb3(web3Instance);
           setContract(contractInstance);
@@ -179,13 +186,16 @@ export default function Home() {
             }
         }
 
-        setPassportData({
-            name: result.name,
-            age: result.age,
-            birthdate: new Date(Number(result.birthdate) * 1000).toLocaleDateString(),
-            country: result.country,
-            passportId: result.passportId
-        });
+        if (result) {
+            const passportInfo: PassportData = {
+                name: result.name,
+                age: Number(result.age),
+                birthdate: new Date(Number(result.birthdate) * 1000).toLocaleDateString(),
+                country: result.country,
+                passportId: Number(result.passportId)
+            };
+            setPassportData(passportInfo);
+        }
     } catch (error: unknown) {
         const web3Error = error as Web3Error;
         console.error("Error verifying passport:", web3Error);

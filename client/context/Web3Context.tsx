@@ -37,7 +37,7 @@ type PassportContract = Contract<PassportAbi> & {
         age: string;
         birthdate: string;
         country: string;
-        passportId: string;
+        passportId: number;
       }>;
     };
   };
