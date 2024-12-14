@@ -13,3 +13,12 @@ export interface PassportFormData {
     country: string;
     passportId: string;
   }
+  
+  export interface VerifyResult {
+    hasPassport: boolean;
+    name: string;
+    age: string;
+    birthdate: string;
+    country: string;
+    passportId: string;
+  }

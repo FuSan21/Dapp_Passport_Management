@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useWeb3 } from '@/context/Web3Context';
-import type { PassportFormData, PassportData } from '@/types/passport';
+import type { PassportFormData, PassportData, VerifyResult } from '@/types/passport';
 
 export default function Home() {
   const { account, contract } = useWeb3();
@@ -14,11 +14,26 @@ export default function Home() {
   });
   const [verificationAddress, setVerificationAddress] = useState<string>('');
   const [passportData, setPassportData] = useState<PassportData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+    
     try {
       if (!contract || !account) return;
+
+      // Check if passport already exists
+      const result = await contract.methods.verify(account)
+        .call({ from: account }) as VerifyResult;
+      
+      if (result.hasPassport) {
+        setError('You already have a registered passport');
+        setIsLoading(false);
+        return;
+      }
 
       await contract.methods.register(
         formData.name,
@@ -28,9 +43,18 @@ export default function Home() {
       ).send({ from: account });
       
       alert('Registration successful!');
-    } catch (error) {
+      // Clear form after successful registration
+      setFormData({
+        name: '',
+        age: '',
+        birthdate: '',
+        country: ''
+      });
+    } catch (error: any) {
       console.error('Registration error:', error);
-      alert('Registration failed!');
+      setError(error.message || 'Registration failed. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -40,7 +64,7 @@ export default function Home() {
       if (!contract || !account) return;
 
       const result = await contract.methods.verify(verificationAddress)
-        .call({ from: account });
+        .call({ from: account }) as VerifyResult;
 
       setPassportData({
         exists: result.hasPassport,
@@ -70,6 +94,11 @@ export default function Home() {
         <div className="space-y-8">
           <div>
             <h2 className="text-xl font-bold mb-4">Register Passport</h2>
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                {error}
+              </div>
+            )}
             <form onSubmit={handleRegister} className="space-y-4">
               <input
                 type="text"
@@ -100,9 +129,14 @@ export default function Home() {
               />
               <button 
                 type="submit" 
-                className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+                disabled={isLoading}
+                className={`${
+                  isLoading 
+                    ? 'bg-blue-300 cursor-not-allowed' 
+                    : 'bg-blue-500 hover:bg-blue-600'
+                } text-white px-4 py-2 rounded transition-colors`}
               >
-                Register
+                {isLoading ? 'Registering...' : 'Register'}
               </button>
             </form>
           </div>
