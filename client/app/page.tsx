@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useWeb3 } from '@/context/Web3Context';
 import type { PassportFormData, PassportData, VerifyResult } from '@/types/passport';
 
@@ -17,21 +17,37 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Reset states when account changes
+  useEffect(() => {
+    setIsLoading(false);
+    setError(null);
+    setPassportData(null);
+    setFormData({
+      name: '',
+      age: '',
+      birthdate: '',
+      country: ''
+    });
+  }, [account]);
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!contract || !account) {
+      setError('Please connect your wallet first');
+      return;
+    }
+
     setError(null);
     setIsLoading(true);
     
     try {
-      if (!contract || !account) return;
-
       // Check if passport already exists
       const result = await contract.methods.verify(account)
         .call({ from: account }) as VerifyResult;
       
       if (result.hasPassport) {
         setError('You already have a registered passport');
-        setIsLoading(false);
         return;
       }
 
@@ -52,7 +68,12 @@ export default function Home() {
       });
     } catch (error: any) {
       console.error('Registration error:', error);
-      setError(error.message || 'Registration failed. Please try again.');
+      // Handle user rejection separately
+      if (error.code === 4001) {
+        setError('Transaction was rejected');
+      } else {
+        setError(error.message || 'Registration failed. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
